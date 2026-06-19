@@ -182,7 +182,6 @@ async function run() {
       }
     });
 
-    // ১. ওনারের ইমেইল অনুযায়ী সব অপরচুনিটি গেট করা
     app.get("/api/opportunities/:email", async (req, res) => {
       try {
         const { email } = req.params;
@@ -196,50 +195,47 @@ async function run() {
       }
     });
 
-    // ২. অপরচুনিটি আপডেট করা
-    // app.put("/api/opportunity/:id", async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-    //     const {
-    //       roleTitle,
-    //       requiredSkills,
-    //       workType,
-    //       commitmentLevel,
-    //       deadline,
-    //     } = req.body;
-    //     const { ObjectId } = require("mongodb");
+    app.put("/api/opportunity/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const {
+          roleTitle,
+          requiredSkills,
+          workType,
+          commitmentLevel,
+          deadline,
+        } = req.body;
+        const { ObjectId } = require("mongodb");
 
-    //     const updateDoc = {
-    //       $set: {
-    //         roleTitle,
-    //         requiredSkills,
-    //         workType,
-    //         commitmentLevel,
-    //         deadline,
-    //         updatedAt: new Date(),
-    //       },
-    //     };
+        const updateDoc = {
+          $set: {
+            roleTitle,
+            requiredSkills,
+            workType,
+            commitmentLevel,
+            deadline,
+            updatedAt: new Date(),
+          },
+        };
 
-    //     const result = await opportunitiesCollection.updateOne(
-    //       { _id: new ObjectId(id) },
-    //       updateDoc,
-    //     );
+        const result = await opportunitiesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc,
+        );
 
-    //     if (result.matchedCount === 0) {
-    //       return res
-    //         .status(404)
-    //         .json({ success: false, message: "Opportunity not found" });
-    //     }
-    //     res
-    //       .status(200)
-    //       .json({
-    //         success: true,
-    //         message: "Opportunity updated successfully!",
-    //       });
-    //   } catch (error) {
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
+        if (result.matchedCount === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Opportunity not found" });
+        }
+        res.status(200).json({
+          success: true,
+          message: "Opportunity updated successfully!",
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
 
     // ৩. অপরচুনিটি ডিলিট করা
     // app.delete("/api/opportunity/:id", async (req, res) => {
