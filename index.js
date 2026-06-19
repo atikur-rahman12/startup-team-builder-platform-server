@@ -72,6 +72,44 @@ async function run() {
       }
     });
 
+    // Update Startup Info by Email (Email update kora jabe na)
+    app.put("/api/startup/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+        const { startupName, logo, industry, description, fundingStage } =
+          req.body;
+
+        // Filter validation: email jeno body theke update na hoy
+        const updateDoc = {
+          $set: {
+            startupName,
+            logo,
+            industry,
+            description,
+            fundingStage,
+            updatedAt: new Date(),
+          },
+        };
+
+        const result = await startupsCollection.updateOne(
+          { founderEmail: email },
+          updateDoc,
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Startup not found" });
+        }
+
+        res
+          .status(200)
+          .json({ message: "Startup updated successfully!", result });
+      } catch (error) {
+        res
+          .status(500)
+          .json({ message: "Failed to update startup", error: error.message });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
