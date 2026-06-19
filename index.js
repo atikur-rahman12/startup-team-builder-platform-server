@@ -22,11 +22,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-
     const db = client.db(process.env.AUTH_DB_NAME);
     const startupsCollection = db.collection("startups");
     const opportunitiesCollection = db.collection("opportunities");
