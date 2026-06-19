@@ -60,7 +60,7 @@ async function run() {
         const result = await startupsCollection.insertOne({
           ...req.body,
           createdAt: new Date(),
-          status: "active",
+          status: "pending",
         });
 
         res.status(201).json(result);
@@ -124,20 +124,61 @@ async function run() {
             .json({ error: true, message: "Startup not found to delete" });
         }
 
-        res
-          .status(200)
-          .json({
-            error: false,
-            message: "Startup wiped out successfully from network!",
-          });
+        res.status(200).json({
+          error: false,
+          message: "Startup wiped out successfully from network!",
+        });
       } catch (error) {
-        res
-          .status(500)
-          .json({
-            error: true,
-            message: "Failed to delete startup",
-            error: error.message,
+        res.status(500).json({
+          error: true,
+          message: "Failed to delete startup",
+          error: error.message,
+        });
+      }
+    });
+
+    // 🆕 Create New Opportunity API (With Status Checking)
+    app.post("/api/opportunities", async (req, res) => {
+      try {
+        const opportunityData = req.body;
+        const { founderEmail } = opportunityData;
+
+        // ১. সুযোগ তৈরি করার আগে স্টার্টআপের স্ট্যাটাস চেক করা হচ্ছে
+        const startup = await startupsCollection.findOne({ founderEmail });
+
+        if (!startup) {
+          return res.status(404).json({
+            success: false,
+            message: "No registered startup profile found for this user.",
           });
+        }
+
+        // ২. স্ট্যাটাস যদি 'active' না হয়, তবে রিকোয়েস্ট রিজেক্ট করা হবে
+        if (startup.status !== "active") {
+          return res.status(403).json({
+            success: false,
+            message: `Your startup status is '${startup.status}'. You can only post opportunities when it is 'active'.`,
+          });
+        }
+
+        // ৩. স্ট্যাটাস 'active' হলে ডাটাবেজে ইনসার্ট করা হচ্ছে
+        const result = await opportunitiesCollection.insertOne({
+          ...opportunityData,
+          createdAt: new Date(),
+        });
+
+        res.status(201).json({
+          success: true,
+          message: "Opportunity deployed successfully!",
+          insertedId: result.insertedId, // ফ্রন্টএন্ডের চেকিংয়ের সুবিধার্থে
+          result,
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to create opportunity",
+          error: error.message,
+        });
       }
     });
 
