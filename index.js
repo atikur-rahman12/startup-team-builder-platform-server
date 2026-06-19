@@ -110,6 +110,37 @@ async function run() {
       }
     });
 
+    app.delete("/api/startup/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const result = await startupsCollection.deleteOne({
+          founderEmail: email,
+        });
+
+        if (result.deletedCount === 0) {
+          return res
+            .status(404)
+            .json({ error: true, message: "Startup not found to delete" });
+        }
+
+        res
+          .status(200)
+          .json({
+            error: false,
+            message: "Startup wiped out successfully from network!",
+          });
+      } catch (error) {
+        res
+          .status(500)
+          .json({
+            error: true,
+            message: "Failed to delete startup",
+            error: error.message,
+          });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
