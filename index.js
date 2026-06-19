@@ -237,30 +237,27 @@ async function run() {
       }
     });
 
-    // ৩. অপরচুনিটি ডিলিট করা
-    // app.delete("/api/opportunity/:id", async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-    //     const { ObjectId } = require("mongodb");
-    //     const result = await opportunitiesCollection.deleteOne({
-    //       _id: new ObjectId(id),
-    //     });
+    app.delete("/api/opportunity/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { ObjectId } = require("mongodb");
+        const result = await opportunitiesCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
 
-    //     if (result.deletedCount === 0) {
-    //       return res
-    //         .status(404)
-    //         .json({ success: false, message: "Opportunity not found" });
-    //     }
-    //     res
-    //       .status(200)
-    //       .json({
-    //         success: true,
-    //         message: "Opportunity deleted successfully!",
-    //       });
-    //   } catch (error) {
-    //     res.status(500).json({ success: false, message: error.message });
-    //   }
-    // });
+        if (result.deletedCount === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Opportunity not found" });
+        }
+        res.status(200).json({
+          success: true,
+          message: "Opportunity deleted successfully!",
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
