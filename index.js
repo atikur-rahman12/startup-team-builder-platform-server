@@ -1,6 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 dotenv.config();
 const cors = require("cors");
 const app = express();
@@ -25,6 +25,7 @@ async function run() {
     const db = client.db(process.env.AUTH_DB_NAME);
     const startupsCollection = db.collection("startups");
     const opportunitiesCollection = db.collection("opportunities");
+    const usersCollection = db.collection("user");
 
     app.get("/api/startup/:email", async (req, res) => {
       try {
@@ -137,13 +138,38 @@ async function run() {
       }
     });
 
-    // 🆕 Create New Opportunity API (With Status Checking)
     app.post("/api/opportunities", async (req, res) => {
       try {
         const opportunityData = req.body;
         const { founderEmail } = opportunityData;
 
-        // ১. সুযোগ তৈরি করার আগে স্টার্টআপের স্ট্যাটাস চেক করা হচ্ছে
+        const founder = await usersCollection.findOne({ email: founderEmail });
+
+        const userOpportunities = await opportunitiesCollection
+          .find({ founderEmail: founderEmail })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        let total = userOpportunities.length;
+
+        if (!founder?.isPremium && total >= 3) {
+          const latestOpportunity = userOpportunities[0];
+          const lastPostDate = new Date(latestOpportunity.createdAt);
+          const currentDate = new Date();
+          const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+          if (currentDate - lastPostDate >= thirtyDaysInMs) {
+            total = 0;
+          }
+        }
+
+        if (!founder?.isPremium && total >= 3) {
+          return res.status(401).send({
+            message:
+              "Your free limit is over. Please wait 1 month from your last post to get a reset.",
+          });
+        }
+
         const startup = await startupsCollection.findOne({ founderEmail });
 
         if (!startup) {
@@ -153,15 +179,13 @@ async function run() {
           });
         }
 
-        // ২. স্ট্যাটাস যদি 'active' না হয়, তবে রিকোয়েস্ট রিজেক্ট করা হবে
-        if (startup.status !== "active") {
+        if (startup.status !== "approved") {
           return res.status(403).json({
             success: false,
-            message: `Your startup status is '${startup.status}'. You can only post opportunities when it is 'active'.`,
+            message: `Your startup status is '${startup.status}'. You can only post opportunities when it is 'approved'.`,
           });
         }
 
-        // ৩. স্ট্যাটাস 'active' হলে ডাটাবেজে ইনসার্ট করা হচ্ছে
         const result = await opportunitiesCollection.insertOne({
           ...opportunityData,
           createdAt: new Date(),
@@ -170,7 +194,7 @@ async function run() {
         res.status(201).json({
           success: true,
           message: "Opportunity deployed successfully!",
-          insertedId: result.insertedId, // ফ্রন্টএন্ডের চেকিংয়ের সুবিধার্থে
+          insertedId: result.insertedId,
           result,
         });
       } catch (error) {
@@ -179,6 +203,45 @@ async function run() {
           message: "Failed to create opportunity",
           error: error.message,
         });
+      }
+    });
+
+    app.get("/api/opportunities/count/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const founder = await usersCollection.findOne({ email });
+
+        const userOpportunities = await opportunitiesCollection
+          .find({ founderEmail: email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        let total = userOpportunities.length;
+        let isReseted = false;
+
+        if (!founder?.isPremium && total >= 3) {
+          const latestOpportunity = userOpportunities[0];
+          const lastPostDate = new Date(latestOpportunity.createdAt);
+          const currentDate = new Date();
+
+          const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+          if (currentDate - lastPostDate >= thirtyDaysInMs) {
+            total = 0;
+            isReseted = true;
+          }
+        }
+
+        res.send({
+          isPremium: founder?.isPremium || false,
+          total: total,
+          limit: founder?.isPremium ? null : 3,
+          remaining: founder?.isPremium ? null : Math.max(0, 3 - total),
+          isReseted,
+        });
+      } catch (error) {
+        res.status(500).send({ message: error.message });
       }
     });
 
@@ -205,7 +268,6 @@ async function run() {
           commitmentLevel,
           deadline,
         } = req.body;
-        const { ObjectId } = require("mongodb");
 
         const updateDoc = {
           $set: {
@@ -240,7 +302,6 @@ async function run() {
     app.delete("/api/opportunity/:id", async (req, res) => {
       try {
         const { id } = req.params;
-        const { ObjectId } = require("mongodb");
         const result = await opportunitiesCollection.deleteOne({
           _id: new ObjectId(id),
         });
