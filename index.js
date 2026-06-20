@@ -26,6 +26,7 @@ async function run() {
     const startupsCollection = db.collection("startups");
     const opportunitiesCollection = db.collection("opportunities");
     const usersCollection = db.collection("user");
+    const paymentsCollection = db.collection("payments");
 
     app.get("/api/startup/:email", async (req, res) => {
       try {
@@ -317,6 +318,39 @@ async function run() {
         });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    app.patch("/api/users/upgrade-premium/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const result = await usersCollection.updateOne(
+          { email },
+          {
+            $set: {
+              isPremium: true,
+              premiumAt: new Date(),
+            },
+          },
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: "Premium upgraded",
+        });
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
       }
     });
 
