@@ -139,6 +139,22 @@ async function run() {
       }
     });
 
+    // Get all APPROVED startups for Browse Page
+    app.get("/api/startups/approved", async (req, res) => {
+      try {
+        const result = await startupsCollection
+          .find({ status: "approved" })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.status(200).send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ error: "Internal Server Error", message: error.message });
+      }
+    });
+
     app.post("/api/opportunities", async (req, res) => {
       try {
         const opportunityData = req.body;
@@ -204,6 +220,32 @@ async function run() {
           message: "Failed to create opportunity",
           error: error.message,
         });
+      }
+    });
+
+    // Get Opportunities by Startup ID
+    app.get("/api/opportunities/startup/:startupId", async (req, res) => {
+      try {
+        const { startupId } = req.params;
+
+        // যদি আইডি না থাকে বা ভুলবশত "undefined" স্ট্রিং চলে আসে
+        if (!startupId || startupId === "undefined") {
+          return res.status(200).json([]);
+        }
+
+        const cleanId = startupId.trim();
+
+        // আপনার মঙ্গোডিবি কালেকশনে ম্যাচ করানো হচ্ছে
+        const result = await opportunitiesCollection
+          .find({ startupId: cleanId })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.status(200).send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ error: "Internal Server Error", message: error.message });
       }
     });
 
