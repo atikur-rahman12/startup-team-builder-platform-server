@@ -27,6 +27,7 @@ async function run() {
     const opportunitiesCollection = db.collection("opportunities");
     const usersCollection = db.collection("user");
     const paymentsCollection = db.collection("payments");
+    const applicationsCollection = db.collection("applications");
 
     app.get("/api/startup/:email", async (req, res) => {
       try {
@@ -407,6 +408,44 @@ async function run() {
         res
           .status(500)
           .send({ error: "Internal Server Error", message: error.message });
+      }
+    });
+
+    // Applications Methods
+    app.post("/api/apply", async (req, res) => {
+      try {
+        const { email, opportunityId, ...rest } = req.body;
+
+        const existing = await applicationsCollection.findOne({
+          email,
+          opportunityId,
+        });
+
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            message: "Already applied",
+          });
+        }
+
+        const result = await applicationsCollection.insertOne({
+          email,
+          opportunityId,
+          ...rest,
+          status: "pending",
+          appliedAt: new Date(),
+        });
+
+        res.status(201).json({
+          success: true,
+          message: "Application submitted successfully",
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: error.message,
+        });
       }
     });
 
