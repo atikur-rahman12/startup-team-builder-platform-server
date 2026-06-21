@@ -449,6 +449,54 @@ async function run() {
       }
     });
 
+    // ১. ফাউন্ডারের ইমেইল অনুযায়ী তার সমস্ত অপরচুনিটির অ্যাপ্লিকেশনগুলো নিয়ে আসা
+    app.get("/api/founder/applications/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+        const opportunities = await opportunitiesCollection
+          .find({ founderEmail: email })
+          .toArray();
+        const opportunityIds = opportunities.map((op) => op._id.toString());
+
+        const result = await applicationsCollection
+          .find({ opportunityId: { $in: opportunityIds } })
+          .sort({ appliedAt: -1 })
+          .toArray();
+
+        res.status(200).send(result);
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    // ২. অ্যাপ্লিকেশনের স্টেটাস আপডেট (Accept/Reject) করা
+    app.patch("/api/application/status/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { status } = req.body; // status: 'accepted' অথবা 'rejected'
+
+        const result = await applicationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status, updatedAt: new Date() } },
+        );
+
+        if (result.matchedCount === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Application not found" });
+        }
+
+        res
+          .status(200)
+          .json({
+            success: true,
+            message: `Application ${status} successfully!`,
+          });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
