@@ -228,14 +228,12 @@ async function run() {
       try {
         const { startupId } = req.params;
 
-        // যদি আইডি না থাকে বা ভুলবশত "undefined" স্ট্রিং চলে আসে
         if (!startupId || startupId === "undefined") {
           return res.status(200).json([]);
         }
 
         const cleanId = startupId.trim();
 
-        // আপনার মঙ্গোডিবি কালেকশনে ম্যাচ করানো হচ্ছে
         const result = await opportunitiesCollection
           .find({ startupId: cleanId })
           .sort({ createdAt: -1 })
@@ -393,6 +391,22 @@ async function run() {
           success: false,
           message: error.message,
         });
+      }
+    });
+
+    // Get all opportunities for Browse Page
+    app.get("/api/opportunities", async (req, res) => {
+      try {
+        const result = await opportunitiesCollection
+          .find({})
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.status(200).send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ error: "Internal Server Error", message: error.message });
       }
     });
 
