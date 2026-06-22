@@ -510,6 +510,25 @@ async function run() {
       }
     });
 
+    // Payment Related Api
+    app.post("/api/payments", async (req, res) => {
+      try {
+        const payment = req.body;
+
+        const result = await paymentsCollection.insertOne(payment);
+
+        res.send({
+          success: true,
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
