@@ -449,7 +449,7 @@ async function run() {
       }
     });
 
-    // ১. ফাউন্ডারের ইমেইল অনুযায়ী তার সমস্ত অপরচুনিটির অ্যাপ্লিকেশনগুলো নিয়ে আসা
+    // Get Applications for Founder's Opportunities
     app.get("/api/founder/applications/:email", async (req, res) => {
       try {
         const { email } = req.params;
@@ -469,11 +469,11 @@ async function run() {
       }
     });
 
-    // ২. অ্যাপ্লিকেশনের স্টেটাস আপডেট (Accept/Reject) করা
+    // update status of applications -- accept & reject
     app.patch("/api/application/status/:id", async (req, res) => {
       try {
         const { id } = req.params;
-        const { status } = req.body; // status: 'accepted' অথবা 'rejected'
+        const { status } = req.body;
 
         const result = await applicationsCollection.updateOne(
           { _id: new ObjectId(id) },
@@ -486,14 +486,27 @@ async function run() {
             .json({ success: false, message: "Application not found" });
         }
 
-        res
-          .status(200)
-          .json({
-            success: true,
-            message: `Application ${status} successfully!`,
-          });
+        res.status(200).json({
+          success: true,
+          message: `Application ${status} successfully!`,
+        });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Get only logged-in user's applications
+    app.get("/api/user/applications/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+        const result = await applicationsCollection
+          .find({ email: email })
+          .sort({ appliedAt: -1 })
+          .toArray();
+
+        res.status(200).send(result);
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
       }
     });
 
