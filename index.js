@@ -582,6 +582,36 @@ async function run() {
       }
     });
 
+    // Get all startups (ADMIN)
+    app.get("/api/startups", async (req, res) => {
+      try {
+        const result = await startupsCollection
+          .find({})
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.status(200).send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    app.patch("/api/startup/status/:id", async (req, res) => {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const result = await startupsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } },
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).send({ message: "Startup not found" });
+      }
+
+      res.send({ success: true, message: "Status updated" });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
