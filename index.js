@@ -629,6 +629,75 @@ async function run() {
       }
     });
 
+    // Founder Dashboard Stats
+    app.get("/api/founder/dashboard/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const [totalOpportunities, applications] = await Promise.all([
+          opportunitiesCollection.countDocuments({ founderEmail: email }),
+          applicationsCollection.find({}).sort({ appliedAt: 1 }).toArray(),
+        ]);
+
+        // founder এর opportunity id বের করা
+        const opportunities = await opportunitiesCollection
+          .find({ founderEmail: email })
+          .toArray();
+
+        const opportunityIds = opportunities.map((op) => op._id.toString());
+
+        const founderApplications = applications.filter((app) =>
+          opportunityIds.includes(app.opportunityId),
+        );
+
+        const totalApplications = founderApplications.length;
+
+        const acceptedApplications = founderApplications.filter(
+          (app) => app.status === "accepted",
+        ).length;
+
+        // Monthly chart
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+        const chartData = months.map((month, index) => {
+          const opp = opportunities.filter(
+            (o) => new Date(o.createdAt).getMonth() === index,
+          ).length;
+
+          const apps = founderApplications.filter(
+            (a) => new Date(a.appliedAt).getMonth() === index,
+          ).length;
+
+          const accepted = founderApplications.filter(
+            (a) =>
+              new Date(a.appliedAt).getMonth() === index &&
+              a.status === "accepted",
+          ).length;
+
+          return {
+            month,
+            Opportunities: opp,
+            Applications: apps,
+            Accepted: accepted,
+          };
+        });
+
+        res.send({
+          stats: {
+            totalOpportunities,
+            totalApplications,
+            acceptedApplications,
+          },
+          chartData,
+        });
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
     // Admin Dashboard Overview Stats
     app.get("/api/admin/stats", async (req, res) => {
       try {
