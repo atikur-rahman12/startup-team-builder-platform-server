@@ -612,6 +612,23 @@ async function run() {
       res.send({ success: true, message: "Status updated" });
     });
 
+    // Get All Transactions (ADMIN)
+    app.get("/api/payments", async (req, res) => {
+      try {
+        const result = await paymentsCollection
+          .find({})
+          .sort({ paid_at: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
