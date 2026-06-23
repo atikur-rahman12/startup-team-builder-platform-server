@@ -629,6 +629,36 @@ async function run() {
       }
     });
 
+    // Admin Dashboard Overview Stats
+    app.get("/api/admin/stats", async (req, res) => {
+      try {
+        const [totalUsers, totalStartups, totalOpportunities, payments] =
+          await Promise.all([
+            usersCollection.countDocuments(),
+            startupsCollection.countDocuments(),
+            opportunitiesCollection.countDocuments(),
+            paymentsCollection.find({ payment_status: "paid" }).toArray(),
+          ]);
+
+        const totalRevenue = payments.reduce(
+          (sum, payment) => sum + Number(payment.amount || 0),
+          0,
+        );
+
+        res.send({
+          totalUsers,
+          totalStartups,
+          totalOpportunities,
+          totalRevenue,
+        });
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
