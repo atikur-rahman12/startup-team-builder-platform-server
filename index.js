@@ -207,6 +207,7 @@ async function run() {
 
         const result = await opportunitiesCollection.insertOne({
           ...opportunityData,
+          founderName: founder?.name,
           createdAt: new Date(),
         });
 
@@ -298,6 +299,31 @@ async function run() {
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // Get Single Opportunity By ID
+    app.get("/api/opportunity/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        const result = await opportunitiesCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!result) {
+          return res.status(404).json({
+            success: false,
+            message: "Opportunity not found",
+          });
+        }
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
       }
     });
 
