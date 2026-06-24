@@ -28,6 +28,7 @@ async function run() {
     const usersCollection = db.collection("user");
     const paymentsCollection = db.collection("payments");
     const applicationsCollection = db.collection("applications");
+    const notificationsCollection = db.collection("notifications");
 
     app.get("/api/startup/:email", async (req, res) => {
       try {
@@ -475,23 +476,97 @@ async function run() {
         const { id } = req.params;
         const { status } = req.body;
 
-        const result = await applicationsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { status, updatedAt: new Date() } },
-        );
+        const application = await applicationsCollection.findOne({
+          _id: new ObjectId(id),
+        });
 
-        if (result.matchedCount === 0) {
-          return res
-            .status(404)
-            .json({ success: false, message: "Application not found" });
+        if (!application) {
+          return res.status(404).json({
+            success: false,
+            message: "Application not found",
+          });
         }
 
-        res.status(200).json({
+        await applicationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              status,
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        // Notification Create
+        await notificationsCollection.insertOne({
+          email: application.email,
+          applicationId: id,
+          type: status,
+          title:
+            status === "accepted"
+              ? "Application Accepted"
+              : "Application Rejected",
+          message:
+            status === "accepted"
+              ? `Your application for ${application.roleTitle} has been accepted.`
+              : `Your application for ${application.roleTitle} has been rejected.`,
+          isRead: false,
+          createdAt: new Date(),
+        });
+
+        res.send({
           success: true,
           message: `Application ${status} successfully!`,
         });
       } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
+    // Get Notification Api
+    app.get("/api/notifications/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const result = await notificationsCollection
+          .find({ email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
+    // Read Notification Api
+    app.patch("/api/notifications/read/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        await notificationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              isRead: true,
+            },
+          },
+        );
+
+        res.send({
+          success: true,
+        });
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
       }
     });
 
