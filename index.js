@@ -9,6 +9,11 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
+const logger = (req, res, next) => {
+  console.log("logger logged", req.params);
+  next();
+};
+
 const uri = process.env.MONGO_DB_URI;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -29,6 +34,67 @@ async function run() {
     const paymentsCollection = db.collection("payments");
     const applicationsCollection = db.collection("applications");
     const notificationsCollection = db.collection("notifications");
+    const sessionCollection = db.collection("session");
+
+    // Verification Related
+
+    const verifyToken = async (req, res, next) => {
+      const token = req.headers.authorization?.split(" ")[1];
+
+      console.log("TOKEN:", token);
+
+      if (!token) {
+        return res.status(401).send({
+          success: false,
+          message: "Unauthorized Access",
+        });
+      }
+
+      const query = { token: token };
+      const session = await sessionCollection.findOne(query);
+      console.log("Session User ID:", session?.userId);
+
+      const userId = session.userId;
+
+      const userQuery = {
+        _id: userId,
+      };
+
+      const user = await usersCollection.findOne(userQuery);
+      // set data in the req object
+      req.user = user;
+
+      console.log("DB User ID:", user?._id);
+
+      next();
+    };
+
+    const verifyCollaborator = async (req, res, next) => {
+      const requestedEmail = req.params.email;
+
+      console.log("Token User Email:", req.user?.email);
+      console.log("Requested Email:", requestedEmail);
+
+      if (req.user?.email !== requestedEmail) {
+        return res.status(403).send({
+          success: false,
+          message: "Forbidden Access",
+        });
+      }
+
+      next();
+    };
+
+    const verifyAdmin = async (req, res, next) => {
+      if (req.user?.role !== "admin") {
+        return res.status(403).send({
+          success: false,
+          message: "Forbidden Access",
+        });
+      }
+
+      next();
+    };
 
     app.get("/api/startup/:email", async (req, res) => {
       try {
@@ -597,19 +663,29 @@ async function run() {
     });
 
     // Get only logged-in user's applications
-    app.get("/api/user/applications/:email", async (req, res) => {
-      try {
-        const { email } = req.params;
-        const result = await applicationsCollection
-          .find({ email: email })
-          .sort({ appliedAt: -1 })
-          .toArray();
+    app.get(
+      "/api/user/applications/:email",
+      verifyToken,
+      verifyCollaborator,
 
-        res.status(200).send(result);
-      } catch (error) {
-        res.status(500).send({ success: false, message: error.message });
-      }
-    });
+      async (req, res) => {
+        try {
+          const { email } = req.params;
+
+          const result = await applicationsCollection
+            .find({ email })
+            .sort({ appliedAt: -1 })
+            .toArray();
+
+          res.status(200).send(result);
+        } catch (error) {
+          res.status(500).send({
+            success: false,
+            message: error.message,
+          });
+        }
+      },
+    );
 
     // Payment Related Api
     app.post("/api/payments", async (req, res) => {
@@ -631,7 +707,7 @@ async function run() {
     });
 
     // Get All Users
-    app.get("/api/users", async (req, res) => {
+    app.get("/api/users", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const users = await usersCollection
           .find({})
@@ -648,43 +724,49 @@ async function run() {
     });
 
     // Block / Unblock User
-    app.patch("/api/users/block/:id", async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { isBlocked } = req.body;
+    app.patch(
+      "/api/users/block/:id",
+      logger,
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { isBlocked } = req.body;
 
-        const result = await usersCollection.updateOne(
-          { _id: new ObjectId(id) },
-          {
-            $set: {
-              isBlocked,
+          const result = await usersCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                isBlocked,
+              },
             },
-          },
-        );
+          );
 
-        if (result.matchedCount === 0) {
-          return res.status(404).send({
+          if (result.matchedCount === 0) {
+            return res.status(404).send({
+              success: false,
+              message: "User not found",
+            });
+          }
+
+          res.send({
+            success: true,
+            message: isBlocked
+              ? "User blocked successfully"
+              : "User unblocked successfully",
+          });
+        } catch (error) {
+          res.status(500).send({
             success: false,
-            message: "User not found",
+            message: error.message,
           });
         }
-
-        res.send({
-          success: true,
-          message: isBlocked
-            ? "User blocked successfully"
-            : "User unblocked successfully",
-        });
-      } catch (error) {
-        res.status(500).send({
-          success: false,
-          message: error.message,
-        });
-      }
-    });
+      },
+    );
 
     // Get all startups (ADMIN)
-    app.get("/api/startups", async (req, res) => {
+    app.get("/api/startups", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const result = await startupsCollection
           .find({})
@@ -697,24 +779,40 @@ async function run() {
       }
     });
 
-    app.patch("/api/startup/status/:id", async (req, res) => {
-      const { id } = req.params;
-      const { status } = req.body;
+    app.patch(
+      "/api/startup/status/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { status } = req.body;
 
-      const result = await startupsCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { status } },
-      );
+          const result = await startupsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                status,
+                updatedAt: new Date(),
+              },
+            },
+          );
 
-      if (result.matchedCount === 0) {
-        return res.status(404).send({ message: "Startup not found" });
-      }
-
-      res.send({ success: true, message: "Status updated" });
-    });
+          res.send({
+            success: true,
+            message: `Startup ${status} successfully`,
+          });
+        } catch (error) {
+          res.status(500).send({
+            success: false,
+            message: error.message,
+          });
+        }
+      },
+    );
 
     // Get All Transactions (ADMIN)
-    app.get("/api/payments", async (req, res) => {
+    app.get("/api/payments", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const result = await paymentsCollection
           .find({})
@@ -800,7 +898,7 @@ async function run() {
     });
 
     // Admin Dashboard Overview Stats
-    app.get("/api/admin/stats", async (req, res) => {
+    app.get("/api/admin/stats", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const [totalUsers, totalStartups, totalOpportunities, payments] =
           await Promise.all([
