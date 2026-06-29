@@ -491,16 +491,36 @@ async function run() {
     // Get all opportunities for Browse Page
     app.get("/api/opportunities", async (req, res) => {
       try {
+        const { search, workType, commitmentLevel } = req.query;
+
+        const query = {};
+
+        if (search) {
+          query.roleTitle = {
+            $regex: search,
+            $options: "i",
+          };
+        }
+
+        if (workType) {
+          query.workType = workType;
+        }
+
+        if (commitmentLevel) {
+          query.commitmentLevel = commitmentLevel;
+        }
+
         const result = await opportunitiesCollection
-          .find({})
+          .find(query)
           .sort({ createdAt: -1 })
           .toArray();
 
         res.status(200).send(result);
       } catch (error) {
-        res
-          .status(500)
-          .send({ error: "Internal Server Error", message: error.message });
+        res.status(500).send({
+          error: "Internal Server Error",
+          message: error.message,
+        });
       }
     });
 
